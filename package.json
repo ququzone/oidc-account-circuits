@@ -3,9 +3,9 @@
   "version": "0.1.0",
   "description": "OpenID connect smart account circuits",
   "scripts": {
-    "clean": "rimraf passport_cpp passport_js passport.r1cs passport.sym *.zkey *.ptau verification_key.json input.json witness.wtns proof.json public.json verifier.sol",
-    "precompile": "yarn clean",
-    "compile": "circom circuits/passport.circom --r1cs --wasm --sym --c"
+    "clean": "rimraf output",
+    "precompile": "pnpm clean && mkdir output",
+    "compile": "circom circuits/oidc.circom --r1cs --wasm --sym --c -o output"
   },
   "keywords": [],
   "author": "",
