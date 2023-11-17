@@ -2,10 +2,14 @@
   "name": "oidc-account-circuits",
   "version": "0.1.0",
   "description": "OpenID connect smart account circuits",
+  "directories": {
+    "test": "test"
+  },
   "scripts": {
     "clean": "rimraf output",
     "precompile": "pnpm clean && mkdir output",
-    "compile": "circom circuits/oidc.circom --r1cs --wasm --sym --c -o output"
+    "compile": "circom circuits/oidc.circom --r1cs --wasm --sym --c -o output",
+    "test": "mocha -r ts-node/register --max-old-space-size=4000 test/*.test.ts"
   },
   "keywords": [],
   "author": "",
