@@ -1,6 +1,7 @@
 import chai from "chai";
 import path from "path";
-import { bigIntToArray, toPaddedASCIIStr } from "../sdk/utils";
+import { generateCircuitInputs, shaHash } from "../sdk/utils";
+import { uint8ToBits } from "../sdk/binaryFormat";
 const wasm_tester = require("circom_tester").wasm;
 const getCurveFromName = require("ffjavascript").getCurveFromName;
 
@@ -31,23 +32,21 @@ describe("OIDC Circuit test", function () {
     });
 
     it("Should check constrain", async () => {
-        const payload_start_index = jwtInput.indexOf('.') + 1;
-        const jwtHeader = jwtInput.substring(0, jwtInput.indexOf('.'));
-        const padded_unsigned_jwt = toPaddedASCIIStr(jwtInput, 64 * 25);
-        const num_sha2_blocks = padded_unsigned_jwt.length * 8 / 512;
+        const signature = BigInt("0x" + Buffer.from(jwtSignature, "base64").toString('hex'));
+        const publicKey = BigInt("0x" + Buffer.from(jwk.n, "base64").toString('hex'));
 
-        const payload_len = jwtInput.length - payload_start_index;
+        const input = generateCircuitInputs({
+            data: Buffer.from(jwtInput),
+            rsaSignature: signature,
+            rsaPublicKey: publicKey,
+            maxDataLength: 640
+        });
+        
+        const witness = await circuit.calculateWitness(input, true);
+        await circuit.checkConstraints(witness);
 
-        const signature = bigIntToArray(64, 32, BigInt("0x" + Buffer.from(jwtSignature, "base64").toString('hex')));
-        const modulus = bigIntToArray(64, 32, BigInt("0x" + Buffer.from(jwk.n, "base64").toString('hex')));
 
-        const w = await circuit.calculateWitness({
-            padded_unsigned_jwt,
-            payload_start_index,
-            num_sha2_blocks,
-            signature,
-            modulus
-        }, true);
+        // await circuit.assertOut(witness, { sha: [...uint8ToBits(shaHash(Buffer.from(jwtInput, "ascii")))] })
 
         // const header_F = hashASCIIStrToField(jwtHeader, 248);
 
