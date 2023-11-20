@@ -3,6 +3,7 @@ pragma circom 2.1.0;
 include "../../node_modules/circomlib/circuits/bitify.circom";
 include "../../node_modules/circomlib/circuits/comparators.circom";
 include "../../node_modules/circomlib/circuits/mimcsponge.circom";
+
 include "./fp.circom";
 
 // returns ceil(log2(a+1))
@@ -91,11 +92,35 @@ template Packed2Bytes(n){
     }
 }
 
-// n bytes per signal, n = 31 usually (i.e. 31 8-bit values being packed into 248 bits)
-// when calling this, you must constrain each 'in' value yourself to be < 256
-// TODO: Rangecheck in and out?
+// Written by us
+// n bytes per signal, n = 31 usually
+template Packed2BytesBigEndian(n){
+    signal input in; // < 2 ^ (8 * 31)
+    signal output out[n]; // each out is < 64
+    // Rangecheck in and out?
+
+    // Constrain bits
+    component nbytes = Num2Bits(8 * n);
+    nbytes.in <== in;
+    component bytes[n];
+
+    for (var k = 0; k < n; k++){
+        // Witness gen out
+        out[k] <-- (in >> ((n - k - 1) * 8)) % 256;
+
+        // Constrain bits to match
+        bytes[k] = Num2Bits(8);
+        bytes[k].in <== out[k];
+        for (var j = 0; j < 8; j++) {
+            nbytes.out[(n - k - 1) * 8 + j] === bytes[k].out[j];
+        }
+    }
+}
+
+// Written by us
+// n bytes per signal, n = 31 usually
 template Bytes2Packed(n){
-    signal input in[n]; // each in value is < 256 (i.e. 2^8)
+    signal input in[n]; // each in is < 64
     signal pow2[n+1]; // [k] is 2^k
     signal in_prefix_sum[n+1]; // each [k] is in[0] + 2^8 in[1]... 2^{8k-8} in[k-1]. cont.
     // [0] is 0. [1] is in[0]. [n+1] is out.
@@ -106,6 +131,35 @@ template Bytes2Packed(n){
     in_prefix_sum[0] <-- 0;
     for (var k = 0; k < n; k++){
         in_prefix_sum[k+1] <-- in_prefix_sum[k] + in[k] * (2 ** (k * 8));
+    }
+    out <-- in_prefix_sum[n];
+
+    // Constrain out bits
+    component nbytes = Num2Bits(8 * n);
+    nbytes.in <== out; // I think this auto-rangechecks out to be < 8*n bits.
+    component bytes[n];
+
+    for (var k = 0; k < n; k++){
+        bytes[k] = Num2Bits(8);
+        bytes[k].in <== in[k];
+        for (var j = 0; j < 8; j++) {
+            nbytes.out[k * 8 + j] === bytes[k].out[j];
+        }
+    }
+}
+
+template Bytes2PackedBigEndian(n){
+    signal input in[n]; // each in is < 64
+    signal pow2[n+1]; // [k] is 2^k
+    signal in_prefix_sum[n+1]; // each [k] is in[0] + 2^8 in[1]... 2^{8k-8} in[k-1]. cont.
+    // [0] is 0. [1] is in[0]. [n+1] is out.
+    signal output out; // < 2 ^ (8 * 31)
+    // Rangecheck in and out?
+
+    // Witness gen out
+    in_prefix_sum[0] <-- 0;
+    for (var k = 0; k < n; k++){
+        in_prefix_sum[k+1] <-- in_prefix_sum[k] + in[k] * (2 ** ((n - k - 1) * 8));
     }
     out <-- in_prefix_sum[n];
 

@@ -1,7 +1,7 @@
 import chai from "chai";
 import path from "path";
-import { generateCircuitInputs, shaHash } from "../sdk/utils";
-import { uint8ToBits } from "../sdk/binaryFormat";
+import { generateCircuitInputs, padString, shaHash } from "../sdk/utils";
+import { hashASCIIStrToField } from "../sdk/poseidon";
 const wasm_tester = require("circom_tester").wasm;
 const getCurveFromName = require("ffjavascript").getCurveFromName;
 
@@ -36,7 +36,7 @@ describe("OIDC Circuit test", function () {
         const publicKey = BigInt("0x" + Buffer.from(jwk.n, "base64").toString('hex'));
 
         const input = generateCircuitInputs({
-            data: Buffer.from(jwtInput),
+            data: jwtInput,
             rsaSignature: signature,
             rsaPublicKey: publicKey,
             maxDataLength: 640
@@ -45,12 +45,10 @@ describe("OIDC Circuit test", function () {
         const witness = await circuit.calculateWitness(input, true);
         await circuit.checkConstraints(witness);
 
+        const header_F = hashASCIIStrToField('1', 32);
 
-        // await circuit.assertOut(witness, { sha: [...uint8ToBits(shaHash(Buffer.from(jwtInput, "ascii")))] })
-
-        // const header_F = hashASCIIStrToField(jwtHeader, 248);
-
-        // await circuit.assertOut(w, {jwt_sha2_hash: hash});
-        // await circuit.checkConstraints(w);
+        await circuit.assertOut(witness, {
+            nonce_value_F: header_F,
+        });
     });
 });
