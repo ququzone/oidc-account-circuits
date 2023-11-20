@@ -1,8 +1,39 @@
-pragma circom 2.1.3;
+pragma circom 2.1.0;
 
 include "../../node_modules/circomlib/circuits/poseidon.circom";
 
-include "misc.circom";
+template Num2BitsBE(n) {
+    signal input in;
+    signal output out[n];
+    var lc1 = 0;
+
+    var e2 = 1;
+    for (var i = 0; i < n; i++) {
+        var b = (n - 1) - i;
+        out[b] <-- (in >> i) & 1;
+        out[b] * (out[b] - 1 ) === 0;
+        lc1 += out[b] * e2;
+        e2 = e2 + e2;
+    }
+
+    lc1 === in;
+}
+
+template Segments2NumLE(n, w) {
+    assert(n * w <= 253); 
+
+    signal input in[n];
+    signal output out;
+    var lc1=0;
+
+    var e2 = 1;
+    for (var i = 0; i < n; i++) {
+        lc1 += in[i] * e2;
+        e2 = e2 * (1 << w);
+    }
+
+    lc1 ==> out;
+}
 
 // We only care about collision resistance in that it is hard to find
 // two vectors v1 and v2 such that H(v1) = H(v2) and v1.length = v2.length. 

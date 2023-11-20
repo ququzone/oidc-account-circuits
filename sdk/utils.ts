@@ -1,89 +1,62 @@
-import { poseidonHash } from "./poseidon";
 
-const MAX_KEY_CLAIM_NAME_LENGTH = 32;
-const MAX_KEY_CLAIM_VALUE_LENGTH = 115;
-const MAX_AUD_VALUE_LENGTH = 145;
-const PACK_WIDTH = 248;
+import * as CryptoJS from 'crypto';
+import {
+    assert,
+    int8toBytes,
+    mergeUInt8Arrays,
+    toCircomBigIntBytes,
+    int64toBytes,
+} from "./binaryFormat";
 
-export function chunkArray<T>(array: T[], chunk_size: number): T[][] {
-	const chunks = Array(Math.ceil(array.length / chunk_size));
-	const revArray = array.reverse();
-	for (let i = 0; i < chunks.length; i++) {
-		chunks[i] = revArray.slice(i * chunk_size, (i + 1) * chunk_size).reverse();
-	}
-	return chunks.reverse();
+type CircuitInput = {
+    in_padded: number[];
+    pubkey: string[];
+    signature: string[];
 }
 
-function bytesBEToBigInt(bytes: number[]): bigint {
-	const hex = bytes.map((b) => b.toString(16).padStart(2, '0')).join('');
-	if (hex.length === 0) {
-		return BigInt(0);
-	}
-	return BigInt('0x' + hex);
-}
-
-export function toPaddedASCIIStr(str: string, maxSize: number): number[] {
-	if (str.length > maxSize) {
-		throw new Error(`String ${str} is longer than ${maxSize} chars`);
-	}
-
-	// Note: Padding with zeroes is safe because we are only using this function to map human-readable sequence of bytes.
-	// So the ASCII values of those characters will never be zero (null character).
-	return str
-		.padEnd(maxSize, String.fromCharCode(0))
-		.split('')
-		.map((c) => c.charCodeAt(0));
-}
-
-// hashes an ASCII string to a field element
-export function hashASCIIStrToField(str: string, maxSize: number) {
-    const chunkSize = PACK_WIDTH / 8;
-	const packed = chunkArray(toPaddedASCIIStr(str, maxSize), chunkSize).map((chunk) => bytesBEToBigInt(chunk));
-	return poseidonHash(packed);
-}
-
-const b64DecodeUnicode = (str: string) => {
-    return decodeURIComponent(atob(str).replace(/(.)/g, (m, p) => {
-        let code = p.charCodeAt(0).toString(16).toUpperCase();
-        if (code.length < 2) {
-            code = "0" + code;
-        }
-        return "%" + code;
-    }));
-}
-
-export const base64UrlDecode = (str: string) => {
-    let output = str.replace(/-/g, "+").replace(/_/g, "/");
-    switch (output.length % 4) {
-        case 0:
-            break;
-        case 2:
-            output += "==";
-            break;
-        case 3:
-            output += "=";
-            break;
-        default:
-            throw new Error("base64 string is not of the correct length");
+// Puts an end selector, a bunch of 0s, then the length, then fill the rest with 0s.
+export function sha256Pad(prehash_prepad_m: Uint8Array, maxShaBytes: number): [Uint8Array, number] {
+    let length_bits = prehash_prepad_m.length * 8; // bytes to bits
+    let length_in_bytes = int64toBytes(length_bits);
+    prehash_prepad_m = mergeUInt8Arrays(prehash_prepad_m, int8toBytes(2 ** 7)); // Add the 1 on the end, length 505
+    // while ((prehash_prepad_m.length * 8 + length_in_bytes.length * 8) % 512 !== 0) {
+    while ((prehash_prepad_m.length * 8 + length_in_bytes.length * 8) % 512 !== 0) {
+        prehash_prepad_m = mergeUInt8Arrays(prehash_prepad_m, int8toBytes(0));
     }
-    try {
-        return b64DecodeUnicode(output);
-    } catch (err) {
-        return atob(output);
+    prehash_prepad_m = mergeUInt8Arrays(prehash_prepad_m, length_in_bytes);
+    assert((prehash_prepad_m.length * 8) % 512 === 0, "Padding did not complete properly!");
+    let messageLen = prehash_prepad_m.length;
+    while (prehash_prepad_m.length < maxShaBytes) {
+        prehash_prepad_m = mergeUInt8Arrays(prehash_prepad_m, int64toBytes(0));
     }
-  }
+    assert(
+        prehash_prepad_m.length === maxShaBytes,
+        `Padding to max length did not complete properly! Your padded message is ${prehash_prepad_m.length} long but max is ${maxShaBytes}!`
+    );
+    return [prehash_prepad_m, messageLen];
+}
 
-export function bigIntToArray(n: number, k: number, x: bigint) {
-    let mod: bigint = 1n;
-    for (var idx = 0; idx < n; idx++) {
-        mod = mod * 2n;
-    }
+export function shaHash(str: Uint8Array) {
+    return CryptoJS.createHash('sha256').update(str).digest();
+}
 
-    let ret: bigint[] = [];
-    var x_temp: bigint = x;
-    for (var idx = 0; idx < k; idx++) {
-        ret.push(x_temp % mod);
-        x_temp = x_temp / mod;
-    }
-    return ret;
+export function padString(str: string, paddedBytesSize: number): number[] {
+    let paddedBytes = Array.from(str, (c) => c.charCodeAt(0))
+    paddedBytes.push(...new Array(paddedBytesSize - paddedBytes.length).fill(0))
+    return paddedBytes
+}
+
+export function generateCircuitInputs(params: {
+    data: string;
+    rsaSignature: BigInt;
+    rsaPublicKey: BigInt;
+    maxDataLength: number;
+}): CircuitInput {
+    const circuitInputs : CircuitInput = {
+        in_padded: padString(params.data, params.maxDataLength),
+        pubkey: toCircomBigIntBytes(params.rsaPublicKey),
+        signature: toCircomBigIntBytes(params.rsaSignature)
+    };
+
+    return circuitInputs;
 }
