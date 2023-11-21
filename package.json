@@ -9,6 +9,8 @@
     "clean": "rimraf output",
     "precompile": "pnpm clean && mkdir output",
     "compile": "circom circuits/oidc.circom --r1cs --wasm --sym --c -o output",
+    "setup": "./scripts/setup.sh",
+    "gen-verifier": "./scripts/gen_verifier.sh",
     "test": "mocha -r ts-node/register --max-old-space-size=4000 test/*.test.ts"
   },
   "keywords": [],
