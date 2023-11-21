@@ -136,4 +136,12 @@ template JwtVerifier(max_bytes, max_iss_len, max_aud_len, max_sub_len, n, k) {
     extractSubComp.start_index <== 0;
     signal sub[max_sub_len] <== extractSubComp.extracted_text;
     signal sub_value_F <== HashBytesToField(max_sub_len)(sub);
+
+    signal address_hash_F <== Hasher(3)([
+        iss_value_F,
+        aud_value_F,
+        sub_value_F
+    ]);
+    signal input address_hash;
+    address_hash === address_hash_F;
 }

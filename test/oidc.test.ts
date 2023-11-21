@@ -39,7 +39,10 @@ describe("OIDC Circuit test", function () {
             data: jwtInput,
             rsaSignature: signature,
             rsaPublicKey: publicKey,
-            maxDataLength: 640
+            maxDataLength: 640,
+            maxIssLength: 165,
+            maxAudLength: 145,
+            maxSubLength: 32,
         });
         
         const witness = await circuit.calculateWitness(input, true);
