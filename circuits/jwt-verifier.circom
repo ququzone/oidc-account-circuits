@@ -69,13 +69,13 @@ template JwtVerifier(max_bytes, max_iss_len, max_aud_len, max_sub_len, n, k) {
     nonceStartChars[8] <== 34;
     nonceStartChars[9] <== 0;
 
-    component extractNonceComp = Extract(max_bytes, 10, 42);
+    component extractNonceComp = Extract(max_bytes, 10, 43);
     extractNonceComp.text <== payload;
     extractNonceComp.start_chars <== nonceStartChars;
     extractNonceComp.end_char <== 34; // 34 is "
     extractNonceComp.start_index <== 0;
-    signal nonce[42] <== extractNonceComp.extracted_text;
-    signal nonce_value_F <== HashBytesToField(42)(nonce);
+    signal nonce[43] <== extractNonceComp.extracted_text;
+    signal nonce_value_F <== HashBytesToField(43)(nonce);
 
     signal input nonce_hash;
     nonce_hash === nonce_value_F;

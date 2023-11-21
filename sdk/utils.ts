@@ -59,7 +59,7 @@ export function generateCircuitInputs(params: {
     maxSubLength: number;
 }): CircuitInput {
     const payload = JSON.parse(Buffer.from(params.data.split('.')[1], 'base64').toString());
-    const nonceField = hashASCIIStrToField(payload.nonce, 42);
+    const nonceField = hashASCIIStrToField(payload.nonce, 43);
 
     const issField = hashASCIIStrToField(payload.iss, params.maxIssLength);
     const audField = hashASCIIStrToField(payload.aud, params.maxAudLength);
