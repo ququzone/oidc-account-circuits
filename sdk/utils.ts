@@ -7,11 +7,13 @@ import {
     toCircomBigIntBytes,
     int64toBytes,
 } from "./binaryFormat";
+import { hashASCIIStrToField } from './poseidon';
 
 type CircuitInput = {
     in_padded: number[];
     pubkey: string[];
     signature: string[];
+    nonce_hash: bigint;
 }
 
 // Puts an end selector, a bunch of 0s, then the length, then fill the rest with 0s.
@@ -52,10 +54,14 @@ export function generateCircuitInputs(params: {
     rsaPublicKey: BigInt;
     maxDataLength: number;
 }): CircuitInput {
+    const payload = JSON.parse(Buffer.from(params.data.split('.')[1], 'base64').toString())
+    const nonce_F = hashASCIIStrToField(payload.nonce, 42);
+
     const circuitInputs : CircuitInput = {
         in_padded: padString(params.data, params.maxDataLength),
         pubkey: toCircomBigIntBytes(params.rsaPublicKey),
-        signature: toCircomBigIntBytes(params.rsaSignature)
+        signature: toCircomBigIntBytes(params.rsaSignature),
+        nonce_hash: nonce_F,
     };
 
     return circuitInputs;

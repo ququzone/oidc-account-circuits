@@ -45,10 +45,8 @@ describe("OIDC Circuit test", function () {
         const witness = await circuit.calculateWitness(input, true);
         await circuit.checkConstraints(witness);
 
-        const header_F = hashASCIIStrToField('1', 32);
-
-        await circuit.assertOut(witness, {
-            nonce_value_F: header_F,
-        });
+        // await circuit.assertOut(witness, {
+        //     nonce_value_F: input.nonce_hash,
+        // });
     });
 });

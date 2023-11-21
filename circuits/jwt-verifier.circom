@@ -8,7 +8,7 @@ include "./helpers/rsa.circom";
 include "./helpers/base64.circom";
 include "./helpers/hasher.circom";
 
-template JwtVerifier(max_bytes, n, k) {
+template JwtVerifier(max_bytes, max_iss_len, max_aud_len, max_sub_len, n, k) {
     // constraints for 2048 bit RSA
     assert(n * k > 2048);
     // we want a multiplication to fit into a circom signal
@@ -69,29 +69,71 @@ template JwtVerifier(max_bytes, n, k) {
     nonceStartChars[8] <== 34;
     nonceStartChars[9] <== 0;
 
-    component extractNonceComp = Extract(max_bytes, 10, 32);
+    component extractNonceComp = Extract(max_bytes, 10, 42);
     extractNonceComp.text <== payload;
     extractNonceComp.start_chars <== nonceStartChars;
     extractNonceComp.end_char <== 34; // 34 is "
     extractNonceComp.start_index <== 0;
+    signal nonce[42] <== extractNonceComp.extracted_text;
+    signal nonce_value_F <== HashBytesToField(42)(nonce);
 
-    signal nonce[32] <== extractNonceComp.extracted_text;
-    signal output nonce_value_F <== HashBytesToField(32)(nonce);
+    signal input nonce_hash;
+    nonce_hash === nonce_value_F;
 
-    /*
-    component kcConcat3Comp = Concat3(1, 12, 3);
-    kcConcat3Comp.text1[0] <== 34; // 34 is "
-    kcConcat3Comp.text2 <== kc_name;   
-    kcConcat3Comp.text3[0] <== 34; // 34 is "
-    kcConcat3Comp.text3[1] <== 58; // 34 is :
-    kcConcat3Comp.text3[2] <== 34; // 34 is "
+    // Extract iss from payload, "iss":" ==> 34 105 115 115 34 58 34 0
+    signal issStartChars[8];
+    issStartChars[0] <== 34;
+    issStartChars[1] <== 105;
+    issStartChars[2] <== 115;
+    issStartChars[3] <== 115;
+    issStartChars[4] <== 34;
+    issStartChars[5] <== 58;
+    issStartChars[6] <== 34;
+    issStartChars[7] <== 0;
 
-    component extractSubComp = Extract(jwt_max_bytes, 16, 32);
+    component extractIssComp = Extract(max_bytes, 8, max_iss_len);
+    extractIssComp.text <== payload;
+    extractIssComp.start_chars <== issStartChars;
+    extractIssComp.end_char <== 34; // 34 is "
+    extractIssComp.start_index <== 0;
+    signal iss[max_iss_len] <== extractIssComp.extracted_text;
+    signal iss_value_F <== HashBytesToField(max_iss_len)(iss);
+
+    // Extract aud from payload, "aud":" ==> 34 97 117 100 34 58 34 0
+    signal audStartChars[8];
+    audStartChars[0] <== 34;
+    audStartChars[1] <== 97;
+    audStartChars[2] <== 117;
+    audStartChars[3] <== 100;
+    audStartChars[4] <== 34;
+    audStartChars[5] <== 58;
+    audStartChars[6] <== 34;
+    audStartChars[7] <== 0;
+
+    component extractAudComp = Extract(max_bytes, 8, max_aud_len);
+    extractAudComp.text <== payload;
+    extractAudComp.start_chars <== audStartChars;
+    extractAudComp.end_char <== 34; // 34 is "
+    extractAudComp.start_index <== 0;
+    signal aud[max_aud_len] <== extractAudComp.extracted_text;
+    signal aud_value_F <== HashBytesToField(max_aud_len)(aud);
+
+    // Extract sub from payload, "sub":" ==> 34 115 117 98 34 58 34 0
+    signal subStartChars[8];
+    subStartChars[0] <== 34;
+    subStartChars[1] <== 115;
+    subStartChars[2] <== 117;
+    subStartChars[3] <== 98;
+    subStartChars[4] <== 34;
+    subStartChars[5] <== 58;
+    subStartChars[6] <== 34;
+    subStartChars[7] <== 0;
+
+    component extractSubComp = Extract(max_bytes, 8, max_sub_len);
     extractSubComp.text <== payload;
-    extractSubComp.start_chars <== kcConcat3Comp.out;
+    extractSubComp.start_chars <== subStartChars;
     extractSubComp.end_char <== 34; // 34 is "
     extractSubComp.start_index <== 0;
-
-    kc_value <== extractSubComp.extracted_text;
-    */
+    signal sub[max_sub_len] <== extractSubComp.extracted_text;
+    signal sub_value_F <== HashBytesToField(max_sub_len)(sub);
 }
